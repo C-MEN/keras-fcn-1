@@ -62,6 +62,8 @@ def load_weights(model, weights_path):
                                             weight_values[i]))
     K.batch_set_value(weight_value_tuples)
 
+    return layer_names
+
 
 def _crop(target_layer, offset=(None, None), name=None):
     """Crop the bottom such that it has the same shape as target_layer."""
@@ -195,14 +197,17 @@ def _handle_data_format():
         COL_AXIS = 3
 
 
-def FCN(basenet='vgg16', num_output=21,
-        input_shape=(None, None, 3), weights='imagenet'):
+def FCN(basenet='vgg16', trainable_base=False,
+        num_output=21, input_shape=(None, None, 3),
+        weights='imagenet'):
     """Instantiate the FCN8s architecture with keras.
 
     # Arguments
         basenet: type of basene {'vgg16'}
+        trainable_base: Bool whether the basenet weights are trainable
         num_output: number of classes
         input_shape: input image shape
+        weights: pre-trained weights to load (None for training from scratch)
     # Returns
         A Keras model instance
     """
@@ -258,8 +263,13 @@ def FCN(basenet='vgg16', num_output=21,
         weights_path = get_file('vgg16_weights_tf_dim_ordering_tf_kernels.h5',
                                 basenet.WEIGHTS_PATH,
                                 cache_subdir='models')
-        load_weights(model, weights_path)
+        layer_names = load_weights(model, weights_path)
         if K.backend() == 'theano':
             layer_utils.convert_all_kernels_in_model(model)
+        # Freezing basenet weights
+        if not trainable_base:
+            for layer in model.layers:
+                if layer.name in layer_names:
+                    layer.trainable = False
 
     return model
